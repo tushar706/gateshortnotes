@@ -6,21 +6,7 @@ import ReaderLayout from '../../components/layout/ReaderLayout'
 import { FormulaRow } from '../../components/sections/FormulaRenderer'
 import AdSlot from '../../components/ui/AdSlot'
 
-export async function generateStaticParams() {
-  try {
-    const branches = await getBranches()
-    const all = []
-    for (const branch of branches) {
-      const chapters = await getAllChaptersByBranch(branch.id)
-      chapters.forEach(ch => {
-        all.push({ branch: branch.slug, chapter: ch.slug })
-      })
-    }
-    return all
-  } catch {
-    return []
-  }
-}
+export const dynamic = 'force-dynamic'
 
 export async function generateMetadata({ params }) {
   try {
@@ -41,40 +27,44 @@ export async function generateMetadata({ params }) {
   }
 }
 
-// Build TOC from note sections
 function buildToc(note) {
   const toc = []
-  if (note.rich_content) toc.push({ id: 'sec-overview',  label: 'Overview' })
-  if (note.concepts?.length)      toc.push({ id: 'sec-concepts', label: 'Key Concepts' })
-  if (note.formulas?.length)      toc.push({ id: 'sec-formulas', label: 'Formulas' })
-  if (note.gate_tips?.length)     toc.push({ id: 'sec-tips',     label: 'GATE Tips' })
-  if (note.pyq_reference?.length) toc.push({ id: 'sec-pyq',      label: 'PYQ Reference' })
+  if (note.rich_content)          toc.push({ id: 'sec-overview',  label: 'Overview' })
+  if (note.concepts?.length)      toc.push({ id: 'sec-concepts',  label: 'Key Concepts' })
+  if (note.formulas?.length)      toc.push({ id: 'sec-formulas',  label: 'Formulas' })
+  if (note.gate_tips?.length)     toc.push({ id: 'sec-tips',      label: 'GATE Tips' })
+  if (note.pyq_reference?.length) toc.push({ id: 'sec-pyq',       label: 'PYQ Reference' })
   return toc
 }
 
+function SectionHeader({ color, label }) {
+  return (
+    <div className="flex items-center gap-2 mb-3">
+      <div className={`w-0.5 h-4 rounded-full ${color} shrink-0`} />
+      <h2 className="text-xs font-bold uppercase tracking-wider text-gray-400 dark:text-gray-500">{label}</h2>
+    </div>
+  )
+}
+
 export default async function ChapterPage({ params }) {
-  let branches = [], note = null, allChapters = [], prevNext = { prev: null, next: null }
+  let branches = [], note = null, allChapters = [], prevNext = { prev: null, next: null }, branch = null
 
   try {
-    branches     = await getBranches()
-    note         = await getNoteBySlug(params.chapter)
+    note = await getNoteBySlug(params.chapter)
     if (!note) notFound()
-    allChapters  = await getAllChaptersByBranch(note.branch_id)
-    prevNext     = await getPrevNextChapters(note.subject_id, note.id)
-  } catch {
+    branches    = await getBranches()
+    branch      = branches.find(b => b.slug === params.branch) || { slug: params.branch, name: note.branch_name, id: note.branch_id }
+    allChapters = await getAllChaptersByBranch(note.branch_id)
+    prevNext    = await getPrevNextChapters(note.subject_id, note.id)
+  } catch (e) {
+    console.error('ChapterPage error:', e)
     notFound()
   }
 
-  const branch = branches.find(b => b.slug === params.branch)
-  const toc    = buildToc(note)
+  const toc = buildToc(note)
 
   return (
-    <ReaderLayout
-      branch={branch}
-      allChapters={allChapters}
-      currentSlug={note.slug}
-      toc={toc}
-    >
+    <ReaderLayout branch={branch} allChapters={allChapters} currentSlug={note.slug} toc={toc}>
       <article className="max-w-2xl mx-auto px-5 py-6">
 
         {/* Breadcrumb */}
@@ -113,21 +103,18 @@ export default async function ChapterPage({ params }) {
           </span>
         </div>
         <p className="text-xs text-gray-400 dark:text-gray-500 mb-6 pb-4 border-b border-gray-100 dark:border-gray-800">
-          {note.branch_name} · {note.subject_name} · Updated {new Date(note.updated_at).toLocaleDateString('en-IN', { month:'long', year:'numeric' })}
+          {note.branch_name} · {note.subject_name} · Updated {new Date(note.updated_at).toLocaleDateString('en-IN', { month: 'long', year: 'numeric' })}
         </p>
 
-        {/* ── Overview / Rich Content ── */}
+        {/* Overview */}
         {note.rich_content && (
           <section id="sec-overview" className="mb-6">
             <SectionHeader color="bg-indigo-500" label="Overview" />
-            <div
-              className="note-prose"
-              dangerouslySetInnerHTML={{ __html: note.rich_content }}
-            />
+            <div className="note-prose" dangerouslySetInnerHTML={{ __html: note.rich_content }} />
           </section>
         )}
 
-        {/* ── Key Concepts ── */}
+        {/* Key Concepts */}
         {note.concepts?.length > 0 && (
           <section id="sec-concepts" className="mb-6">
             <SectionHeader color="bg-blue-500" label="Key Concepts" />
@@ -142,7 +129,7 @@ export default async function ChapterPage({ params }) {
           </section>
         )}
 
-        {/* ── Formulas (KaTeX) ── */}
+        {/* Formulas */}
         {note.formulas?.length > 0 && (
           <section id="sec-formulas" className="mb-6">
             <SectionHeader color="bg-purple-500" label="Formulas" />
@@ -152,7 +139,7 @@ export default async function ChapterPage({ params }) {
           </section>
         )}
 
-        {/* ── GATE Tips ── */}
+        {/* GATE Tips */}
         {note.gate_tips?.length > 0 && (
           <section id="sec-tips" className="mb-6">
             <SectionHeader color="bg-amber-500" label="GATE Tips" />
@@ -167,7 +154,7 @@ export default async function ChapterPage({ params }) {
           </section>
         )}
 
-        {/* ── PYQ Reference ── */}
+        {/* PYQ */}
         {note.pyq_reference?.length > 0 && (
           <section id="sec-pyq" className="mb-6">
             <SectionHeader color="bg-red-500" label="PYQ Reference" />
@@ -191,7 +178,7 @@ export default async function ChapterPage({ params }) {
             <div className="flex flex-col gap-3">
               {note.content_images.map((img, i) => (
                 <figure key={i} className="rounded-lg overflow-hidden border border-gray-200 dark:border-gray-800">
-                  <img src={img.url} alt={img.caption || `Figure ${i+1}`} className="w-full" />
+                  <img src={img.url} alt={img.caption || `Figure ${i + 1}`} className="w-full" />
                   {img.caption && (
                     <figcaption className="text-xs text-center text-gray-400 dark:text-gray-500 px-3 py-2 bg-gray-50 dark:bg-gray-900">
                       {img.caption}
@@ -203,7 +190,7 @@ export default async function ChapterPage({ params }) {
           </section>
         )}
 
-        {/* Author (optional) */}
+        {/* Author */}
         {note.author_name && (
           <div className="flex items-center gap-3 p-3 rounded-lg border border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-900 mb-5">
             {note.author_photo_url ? (
@@ -241,14 +228,5 @@ export default async function ChapterPage({ params }) {
         </div>
       </article>
     </ReaderLayout>
-  )
-}
-
-function SectionHeader({ color, label }) {
-  return (
-    <div className="flex items-center gap-2 mb-3">
-      <div className={`w-0.5 h-4 rounded-full ${color} shrink-0`} />
-      <h2 className="text-xs font-bold uppercase tracking-wider text-gray-400 dark:text-gray-500">{label}</h2>
-    </div>
   )
 }

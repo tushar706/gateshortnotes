@@ -4,14 +4,7 @@ import { getBranches, getAllChaptersByBranch } from '../lib/supabase'
 import ReaderLayout from '../components/layout/ReaderLayout'
 import AdSlot from '../components/ui/AdSlot'
 
-export async function generateStaticParams() {
-  try {
-    const branches = await getBranches()
-    return branches.map(b => ({ branch: b.slug }))
-  } catch {
-    return []
-  }
-}
+export const dynamic = 'force-dynamic'
 
 export async function generateMetadata({ params }) {
   try {
@@ -21,10 +14,6 @@ export async function generateMetadata({ params }) {
     return {
       title: `${branch.name} Short Notes – GATE, ESE, Railway JE | GateShortNotes.in`,
       description: `Free ${branch.name} short notes for GATE, ESE and Railway JE. Key concepts, formulas and PYQs.`,
-      openGraph: {
-        title: `${branch.name} Short Notes | GateShortNotes.in`,
-        description: `Free ${branch.name} short notes for GATE, ESE and Railway JE.`,
-      },
     }
   } catch {
     return {}
@@ -40,17 +29,18 @@ function groupBySubject(chapters) {
 }
 
 export default async function BranchPage({ params }) {
-  let branches = [], allChapters = []
+  let branches = [], allChapters = [], branch = null
+
   try {
     branches = await getBranches()
-    const branch = branches.find(b => b.slug === params.branch)
+    branch = branches.find(b => b.slug === params.branch)
     if (!branch) notFound()
     allChapters = await getAllChaptersByBranch(branch.id)
-  } catch {
+  } catch (e) {
+    console.error('BranchPage error:', e)
     notFound()
   }
 
-  const branch = branches.find(b => b.slug === params.branch)
   const grouped = groupBySubject(allChapters)
 
   return (
@@ -59,19 +49,28 @@ export default async function BranchPage({ params }) {
 
         {/* Breadcrumb */}
         <nav className="flex items-center gap-1.5 text-xs text-gray-400 dark:text-gray-500 mb-5 flex-wrap">
-          <Link href="/" className="text-blue-600 dark:text-blue-400 font-semibold hover:underline">GateShortNotes.in</Link>
+          <Link href="/" className="text-blue-600 dark:text-blue-400 font-semibold hover:underline">
+            GateShortNotes.in
+          </Link>
           <span>›</span>
           <span className="text-gray-600 dark:text-gray-300 font-semibold">{branch.name}</span>
         </nav>
 
         <h1 className="text-2xl font-black text-gray-900 dark:text-white mb-2 tracking-tight">
-          {branch.icon} {branch.name}
+          {branch.name}
         </h1>
         <p className="text-sm text-gray-400 dark:text-gray-500 mb-6">
           {allChapters.length} chapters · Select a chapter to start reading
         </p>
 
         <AdSlot type="leaderboard" className="mb-6" />
+
+        {Object.keys(grouped).length === 0 && (
+          <div className="text-center py-12 text-gray-400 dark:text-gray-500">
+            <p className="text-lg font-semibold mb-2">No chapters yet</p>
+            <p className="text-sm">Content coming soon!</p>
+          </div>
+        )}
 
         {Object.keys(grouped).map(subj => (
           <div key={subj} className="mb-6">
@@ -94,12 +93,12 @@ export default async function BranchPage({ params }) {
                         ★ GATE
                       </span>
                     )}
-                    {(ch.concepts?.length > 0) && (
+                    {ch.concepts?.length > 0 && (
                       <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-blue-50 dark:bg-blue-950 text-blue-600 dark:text-blue-400">
                         {ch.concepts.length} concepts
                       </span>
                     )}
-                    {(ch.formulas?.length > 0) && (
+                    {ch.formulas?.length > 0 && (
                       <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-purple-50 dark:bg-purple-950 text-purple-600 dark:text-purple-400">
                         {ch.formulas.length} formulas
                       </span>
