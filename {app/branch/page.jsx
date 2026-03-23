@@ -1,5 +1,3 @@
-import { notFound } from 'next/navigation'
-import Link from 'next/link'
 import { getBranches, getAllChaptersByBranch } from '../lib/supabase'
 import ReaderLayout from '../components/layout/ReaderLayout'
 import AdSlot from '../components/ui/AdSlot'
